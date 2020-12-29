@@ -34,6 +34,7 @@ struct jcore_pit {
 	void __iomem			*base;
 	unsigned long			periodic_delta;
 	u32				enable_val;
+	u32				freq;
 };
 
 static void __iomem *jcore_pit_base;
@@ -110,8 +111,8 @@ static int jcore_pit_local_init(unsigned cpu)
 	pr_info("Local J-Core PIT init on cpu %u\n", cpu);
 
 	buspd = readl(pit->base + REG_BUSPD);
-	freq = DIV_ROUND_CLOSEST(NSEC_PER_SEC, buspd);
-	pit->periodic_delta = DIV_ROUND_CLOSEST(NSEC_PER_SEC, HZ * buspd);
+	freq = DIV_ROUND_CLOSEST(pit->freq, buspd);
+	pit->periodic_delta = DIV_ROUND_CLOSEST(pit->freq, HZ * buspd);
 
 	clockevents_config_and_register(&pit->ced, freq, 1, ULONG_MAX);
 
@@ -136,6 +137,10 @@ static int __init jcore_pit_init(struct device_node *node)
 	unsigned pit_irq, cpu;
 	unsigned long hwirq;
 	u32 irqprio, enable_val;
+	u32 freq;
+
+	if (of_property_read_u32(node, "timebase-frequency", &freq))
+		freq = NSEC_PER_SEC;
 
 	jcore_pit_base = of_iomap(node, 0);
 	if (!jcore_pit_base) {
@@ -153,14 +158,14 @@ static int __init jcore_pit_init(struct device_node *node)
 		jcore_pit_base, pit_irq);
 
 	err = clocksource_mmio_init(jcore_pit_base, "jcore_pit_cs",
-				    NSEC_PER_SEC, 400, 32,
+				    freq, 400, 32,
 				    jcore_clocksource_read);
 	if (err) {
 		pr_err("Error registering clocksource device: %d\n", err);
 		return err;
 	}
 
-	sched_clock_register(jcore_sched_clock_read, 32, NSEC_PER_SEC);
+	sched_clock_register(jcore_sched_clock_read, 32, freq);
 
 	jcore_pit_percpu = alloc_percpu(struct jcore_pit);
 	if (!jcore_pit_percpu) {
@@ -234,6 +239,7 @@ static int __init jcore_pit_init(struct device_node *node)
 		pit->ced.set_next_event = jcore_pit_set_next_event;
 
 		pit->enable_val = enable_val;
+		pit->freq = freq;
 	}
 
 	cpuhp_setup_state(CPUHP_AP_JCORE_TIMER_STARTING,
