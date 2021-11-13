@@ -68,6 +68,7 @@ static int __init aic_irq_of_init(struct device_node *node,
 	unsigned min_irq = JCORE_AIC2_MIN_HWIRQ;
 	unsigned dom_sz = JCORE_AIC_MAX_HWIRQ+1;
 	struct irq_domain *domain;
+	int rc;
 
 	pr_info("Initializing J-Core AIC\n");
 
@@ -100,6 +101,11 @@ static int __init aic_irq_of_init(struct device_node *node,
 	jcore_aic.irq_unmask = noop;
 	jcore_aic.name = "AIC";
 
+	rc = irq_alloc_descs(min_irq, min_irq, dom_sz - min_irq,
+			     of_node_to_nid(node));
+	if (rc < 0)
+		pr_info("Cannot allocate irq_descs @ IRQ%d, assuming pre-allocated\n",
+			min_irq);
 	domain = irq_domain_add_legacy(node, dom_sz - min_irq, min_irq, min_irq,
 				       &jcore_aic_irqdomain_ops,
 				       &jcore_aic);
