@@ -1636,7 +1636,6 @@ static noinline void __init kernel_init_freeable(void)
 	kunit_run_all_tests();
 
 	wait_for_initramfs();
-	console_on_rootfs();
 
 	/*
 	 * check if there is an early userspace init.  If yes, let it do all
@@ -1645,7 +1644,11 @@ static noinline void __init kernel_init_freeable(void)
 	if (init_eaccess(ramdisk_execute_command) != 0) {
 		ramdisk_execute_command = NULL;
 		prepare_namespace();
+	} else if (IS_ENABLED(CONFIG_DEVTMPFS_MOUNT)) {
+		init_mkdir("/dev", 0755);
+		devtmpfs_mount();
 	}
+	console_on_rootfs();
 
 	/*
 	 * Ok, we have completed the initial bootup, and
