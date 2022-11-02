@@ -18,9 +18,12 @@ $(bounds-file): kernel/bounds.s FORCE
 
 timeconst-file := include/generated/timeconst.h
 
-filechk_gentimeconst = echo $(CONFIG_HZ) | bc -q $<
+hostprogs += mktimeconst
+mktimeconst-objs = kernel/time/mktimeconst.o
 
-$(timeconst-file): kernel/time/timeconst.bc FORCE
+filechk_gentimeconst = $(obj)/mktimeconst $(CONFIG_HZ) -
+
+$(timeconst-file): $(obj)/mktimeconst FORCE
 	$(call filechk,gentimeconst)
 
 # Generate asm-offsets.h
